@@ -61,6 +61,7 @@ export function BookingPanel({ bookingId, onClose, onEdit }) {
       therapist: String(serviceItem?.therapist?.id || serviceItem?.therapist || ''),
       room: booking.room_label || serviceItem?.room_segments?.[0]?.item_type || '',
       roomId: booking.room_id || serviceItem?.room_segments?.[0]?.room_id || '',
+      roomItemType: serviceItem?.room_segments?.[0]?.item_type || '',
       requestType: booking.request_type || '',
       source: booking.source || booking.request_type || '',
       duration: String(serviceItem?.duration || 60),

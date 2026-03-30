@@ -9,9 +9,12 @@ import {
 import { enUS } from 'date-fns/locale';
 import {
   AlertCircle,
+  CalendarClock,
   ChevronDown,
   Filter,
+  MapPin,
   Plus,
+  UserRound,
 } from 'lucide-react';
 import { Calendar, Views, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -19,7 +22,6 @@ import { Alert, Button, Dropdown, Form, Spinner } from 'react-bootstrap';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { useCalendar } from '../../context/CalendarContext';
-import { BookingPanel } from './BookingPanel';
 import { BookingFormModal } from './BookingFormModal';
 
 const locales = { 'en-US': enUS };
@@ -98,6 +100,84 @@ function CalendarToolbar({ date, onNavigate }) {
   );
 }
 
+function BookingInspector({ booking, therapists, onEdit }) {
+  const item = booking?.items?.[0];
+  const therapistName =
+    therapists.find(
+      (therapist) => therapist.id === (item?.therapist?.id || item?.therapist)
+    )?.name || 'Unassigned';
+
+  if (!booking || !item) {
+    return (
+      <aside className="booking-inspector">
+        <div className="inspector-empty">
+          <h4>Appointment</h4>
+          <p>Select a booking from the calendar to view client, service, room, and status details.</p>
+        </div>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="booking-inspector">
+      <div className="inspector-header">
+        <div>
+          <p className="hero-kicker">Appointment</p>
+          <h4>{booking.customer?.name || 'Guest'}</h4>
+        </div>
+        <span className={`inspector-status status-${booking.status?.includes('Check-in') ? 'progress' : booking.status === 'Cancelled' ? 'cancelled' : 'confirmed'}`}>
+          {booking.status || 'Confirmed'}
+        </span>
+      </div>
+
+      <div className="inspector-section">
+        <div className="inspector-user">
+          <div className="inspector-avatar">
+            {(booking.customer?.name || 'G').slice(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <strong>{booking.customer?.name || 'Guest booking'}</strong>
+            <span>{booking.customer?.email || 'Client record available in system'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="inspector-section">
+        <div className="inspector-row">
+          <span><CalendarClock size={15} /> Time</span>
+          <strong>{item.start_time} - {item.end_time || '--:--'}</strong>
+        </div>
+        <div className="inspector-row">
+          <span><UserRound size={15} /> Therapist</span>
+          <strong>{therapistName}</strong>
+        </div>
+        <div className="inspector-row">
+          <span><MapPin size={15} /> Room</span>
+          <strong>{booking.room_label || item.room_segments?.[0]?.item_name || item.room_segments?.[0]?.item_type || 'Not assigned'}</strong>
+        </div>
+      </div>
+
+      <div className="inspector-service-card">
+        <strong>{item.service?.name || 'Service'}</strong>
+        <span>{item.duration || 60} min</span>
+        {item.service_request ? <p>{item.service_request}</p> : null}
+      </div>
+
+      {(booking.notes || booking.note) ? (
+        <div className="inspector-note">
+          {booking.notes || booking.note}
+        </div>
+      ) : null}
+
+      <div className="inspector-actions">
+        <Button variant="dark" onClick={() => onEdit?.(booking)}>
+          Edit booking
+        </Button>
+      </div>
+    </aside>
+  );
+}
+
 export function CalendarBoard() {
   const {
     therapists,
@@ -109,6 +189,8 @@ export function CalendarBoard() {
     searchQuery,
     moveBooking,
     saveBooking,
+    bookingDetails,
+    fetchBookingDetails,
     clearError,
     clearUiMessage,
   } = useCalendar();
@@ -129,6 +211,12 @@ export function CalendarBoard() {
     const timer = window.setTimeout(() => clearUiMessage(), 3500);
     return () => window.clearTimeout(timer);
   }, [clearUiMessage, uiMessage]);
+
+  useEffect(() => {
+    if (selectedBookingId) {
+      fetchBookingDetails(selectedBookingId);
+    }
+  }, [fetchBookingDetails, selectedBookingId]);
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
@@ -208,6 +296,10 @@ export function CalendarBoard() {
     [therapists]
   );
 
+  const selectedBooking = selectedBookingId
+    ? bookingDetails[selectedBookingId] || bookings.find((booking) => booking.id === selectedBookingId)
+    : null;
+
   const handleNavigate = (action) => {
     if (action === 'TODAY') {
       setSelectedDate(new Date());
@@ -248,6 +340,7 @@ export function CalendarBoard() {
       therapist: String(event.resourceId || ''),
       room: event.booking.room_label || event.booking.items?.[0]?.room_segments?.[0]?.item_type || '',
       roomId: event.booking.room_id || event.booking.items?.[0]?.room_segments?.[0]?.room_id || '',
+      roomItemType: event.booking.items?.[0]?.room_segments?.[0]?.item_type || '',
       requestType: event.booking.request_type || '',
       source: event.booking.source || event.booking.request_type || '',
       duration: String(Math.max(15, Math.round((end - start) / (1000 * 60)))),
@@ -286,8 +379,8 @@ export function CalendarBoard() {
         <section className="calendar-content-shell">
           <div className="calendar-inline-toolbar">
             <div className="calendar-inline-title">
-              <p className="hero-kicker">Booking Calendar</p>
-              <h3>Schedule</h3>
+              <p className="hero-kicker">Liat Towers</p>
+              <h3>Appointment</h3>
             </div>
 
             <div className="calendar-inline-actions">
@@ -347,55 +440,77 @@ export function CalendarBoard() {
             </div>
           </div>
 
-          <section className="calendar-surface calendar-surface--full">
-            <DnDCalendar
-              localizer={localizer}
-              date={selectedDate}
-              defaultView={Views.DAY}
-              events={events}
-              resources={resources}
-              resourceIdAccessor="resourceId"
-              resourceTitleAccessor="resourceTitle"
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: 'calc(100vh - 260px)' }}
-              toolbar
-              views={[Views.DAY]}
-              step={15}
-              timeslots={4}
-              min={buildDateTime(selectedDate, '09:00')}
-              max={buildDateTime(selectedDate, '21:00')}
-              scrollToTime={buildDateTime(selectedDate, '09:00')}
-              selectable
-              resizable
-              formats={{
-                timeGutterFormat: 'hh:mm a',
-                eventTimeRangeFormat: ({ start, end }) =>
-                  `${format(start, 'hh:mm a')} - ${format(end, 'hh:mm a')}`,
-              }}
-              onNavigate={setSelectedDate}
-              onSelectEvent={(event) => setSelectedBookingId(event.id)}
-              onSelectSlot={openCreateModal}
-              onEventDrop={handleEventDrop}
-              onEventResize={handleEventResize}
-              eventPropGetter={eventStyleGetter}
-              components={{
-                toolbar: (props) => (
-                  <CalendarToolbar {...props} onNavigate={handleNavigate} />
-                ),
-                event: EventCard,
-                resourceHeader: ResourceHeader,
-              }}
+          <div className="therapist-strip">
+            <div className="time-label-cell">
+              <strong>Time</strong>
+              <span>Display : 15 Min</span>
+            </div>
+            <div className="therapist-strip-scroll">
+              {therapists.slice(0, 12).map((therapist, index) => (
+                <div key={therapist.id} className="therapist-chip">
+                  <span className={`therapist-chip-index ${String(therapist.gender).toLowerCase() === 'female' ? 'is-female' : 'is-male'}`}>
+                    {index + 1}
+                  </span>
+                  <div>
+                    <strong>{therapist.name}</strong>
+                    <span>{therapist.gender || 'Therapist'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="schedule-stage">
+            <section className="calendar-surface calendar-surface--full">
+              <DnDCalendar
+                localizer={localizer}
+                date={selectedDate}
+                defaultView={Views.DAY}
+                events={events}
+                resources={resources}
+                resourceIdAccessor="resourceId"
+                resourceTitleAccessor="resourceTitle"
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: 'calc(100vh - 310px)' }}
+                toolbar
+                views={[Views.DAY]}
+                step={15}
+                timeslots={4}
+                min={buildDateTime(selectedDate, '09:00')}
+                max={buildDateTime(selectedDate, '21:00')}
+                scrollToTime={buildDateTime(selectedDate, '09:00')}
+                selectable
+                resizable
+                formats={{
+                  timeGutterFormat: 'hh:mm a',
+                  eventTimeRangeFormat: ({ start, end }) =>
+                    `${format(start, 'hh:mm a')} - ${format(end, 'hh:mm a')}`,
+                }}
+                onNavigate={setSelectedDate}
+                onSelectEvent={(event) => setSelectedBookingId(event.id)}
+                onSelectSlot={openCreateModal}
+                onEventDrop={handleEventDrop}
+                onEventResize={handleEventResize}
+                eventPropGetter={eventStyleGetter}
+                components={{
+                  toolbar: (props) => (
+                    <CalendarToolbar {...props} onNavigate={handleNavigate} />
+                  ),
+                  event: EventCard,
+                  resourceHeader: ResourceHeader,
+                }}
+              />
+            </section>
+
+            <BookingInspector
+              booking={selectedBooking}
+              therapists={therapists}
+              onEdit={openEditModal}
             />
-          </section>
+          </div>
         </section>
       </div>
-
-      <BookingPanel
-        bookingId={selectedBookingId}
-        onClose={() => setSelectedBookingId(null)}
-        onEdit={openEditModal}
-      />
       <BookingFormModal
         show={Boolean(formMode)}
         mode={formMode}

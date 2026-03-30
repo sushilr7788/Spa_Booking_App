@@ -172,6 +172,7 @@ function buildLocalBooking(bookingId, payload, therapists) {
           ? [
               {
                 room_id: Number(payload.roomId),
+                item_type: payload.roomItemType || payload.room || '',
                 start_time: payload.startTime,
                 end_time: payload.endTime,
                 duration: Number(payload.duration || 60),
@@ -295,7 +296,6 @@ export const CalendarProvider = ({ children }) => {
           date: dateStr,
           panel: 'outlet',
           duration: Number(duration),
-          service_at: serviceAt,
         }),
         usersApi.getList({
           pagination: 1,
@@ -445,7 +445,7 @@ export const CalendarProvider = ({ children }) => {
               ? [
                   {
                     room_id: Number(payload.roomId),
-                    item_type: payload.room || 'Room',
+                    item_type: payload.roomItemType || payload.room || '',
                     meta_service: null,
                     start_time: payload.startTime,
                     end_time: payload.endTime,
@@ -536,7 +536,7 @@ export const CalendarProvider = ({ children }) => {
               ? [
                   {
                     room_id: Number(payload.roomId),
-                    item_type: payload.room || 'Room',
+                    item_type: payload.roomItemType || payload.room || '',
                     meta_service: null,
                     start_time: payload.startTime,
                     end_time: payload.endTime,

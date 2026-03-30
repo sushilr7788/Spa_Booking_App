@@ -26,7 +26,8 @@ function buildInitialState(booking, defaultDate, defaultTherapistId) {
     serviceId: String(item?.service?.id || ''),
     therapist: String(item?.therapist?.id || item?.therapist || defaultTherapistId || ''),
     room: booking?.room_label || roomSegment?.item_type || '',
-    roomId: String(booking?.room_id || roomSegment?.room_id || ''),
+    roomId: String(booking?.room_id || roomSegment?.room_id || roomSegment?.item_id || ''),
+    roomItemType: roomSegment?.item_type || roomSegment?.item_name || '',
     requestType: booking?.request_type || REQUEST_TYPE_OPTIONS[0],
     duration: String(item?.duration || 60),
     startTime,
@@ -291,14 +292,15 @@ export function BookingFormModal({
             <Form.Select
               value={formState.roomId}
               onChange={(event) => {
-                const selected = roomOptions.find((room) => String(room.id || room.room_id) === event.target.value);
+                const selected = roomOptions.find((room) => String(room.items?.[0]?.item_id || room.id || room.room_id) === event.target.value);
                 updateField('roomId', event.target.value);
                 updateField('room', selected?.name || selected?.title || selected?.room_name || '');
+                updateField('roomItemType', selected?.items?.[0]?.item || selected?.items?.[0]?.item_name || '');
               }}
             >
               <option value="">Select room</option>
               {roomOptions.map((room) => (
-                <option key={room.id || room.room_id} value={String(room.id || room.room_id)}>
+                <option key={room.items?.[0]?.item_id || room.id || room.room_id} value={String(room.items?.[0]?.item_id || room.id || room.room_id)}>
                   {room.name || room.title || room.room_name || `Room ${room.id || room.room_id}`}
                 </option>
               ))}
@@ -407,9 +409,9 @@ export function BookingFormModal({
           <Button
             variant="dark"
             onClick={handleSubmit}
-            disabled={saving || supportLoading || !serviceOptions.length || !roomOptions.length || !therapistOptions.length}
+            disabled={saving}
           >
-            {saving ? 'Saving...' : mode === 'create' ? 'Create booking' : 'Save changes'}
+            {saving ? 'Saving...' : supportLoading ? 'Loading data...' : mode === 'create' ? 'Create booking' : 'Save changes'}
           </Button>
         </div>
       </Offcanvas.Body>
