@@ -64,11 +64,10 @@ function EventCard({ event }) {
 function ResourceHeader({ label, resource }) {
   return (
     <div
-      className={`resource-pill ${
-        String(resource?.gender || '').toLowerCase() === 'female'
+      className={`resource-pill ${String(resource?.gender || '').toLowerCase() === 'female'
           ? 'is-female'
           : 'is-male'
-      }`}
+        }`}
     >
       <strong>{label}</strong>
       <span>{resource?.gender || 'Therapist'}</span>
